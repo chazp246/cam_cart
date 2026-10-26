@@ -1,8 +1,10 @@
-const CACHE_NAME = "camroller-offline-v2";
+const CACHE_NAME = "camroller-offline-v3";
 const ASSETS = [
-  "./",
+"./",
   "./index.html",
-  "./manifest.json"
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 // Install & save all files into phone storage immediately
