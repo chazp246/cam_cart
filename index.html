@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#121212">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CamRoller">
+  <title>CamRoller BLE Controller</title>
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23121212'/%3E%3Crect x='15' y='68' width='70' height='8' rx='4' fill='%2300e676'/%3E%3Ccircle cx='28' cy='82' r='8' fill='%2380d8ff'/%3E%3Ccircle cx='72' cy='82' r='8' fill='%2380d8ff'/%3E%3Crect x='28' y='32' width='44' height='30' rx='6' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='47' r='10' fill='%23121212'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23121212'/%3E%3Crect x='15' y='68' width='70' height='8' rx='4' fill='%2300e676'/%3E%3Ccircle cx='28' cy='82' r='8' fill='%2380d8ff'/%3E%3Ccircle cx='72' cy='82' r='8' fill='%2380d8ff'/%3E%3Crect x='28' y='32' width='44' height='30' rx='6' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='47' r='10' fill='%23121212'/%3E%3C/svg%3E">
+
+  <style>
+    :root {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --accent: #00e676;
+      --warn: #ffb300;
+      --danger: #ff5252;
+      --text: #ffffff;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 14px;
+      max-width: 520px;
+      margin-inline: auto;
+      user-select: none;
+    }
+    h2 { margin-top: 0; font-size: 1.05rem; color: var(--accent); }
+    .card {
+      background: var(--card);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .row label { flex: 1; font-size: 0.88rem; color: #ccc; }
+    .row input[type="number"], .row select {
+      width: 86px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #2c2c2c;
+      color: #fff;
+      font-size: 0.95rem;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); margin: 6px 0 12px 0; }
+    button {
+      flex: 1;
+      padding: 11px 8px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: #333;
+      color: #fff;
+    }
+    button.primary { background: var(--accent); color: #000; }
+    button.warn { background: var(--warn); color: #000; }
+    button.danger { background: var(--danger); color: #fff; }
+    button.subtle { background: #2c2c2c; color: #ccc; font-size: 0.8rem; padding: 8px; }
+
+    /* Reset / Disconnect Alert Banner */
+    #alertBanner {
+      display: none;
+      background: #b71c1c;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    #alertBanner button {
+      flex: 0 0 auto;
+      padding: 5px 10px;
+      background: rgba(0,0,0,0.35);
+      font-size: 0.8rem;
+    }
+
+    /* Status & Battery Telemetry Bar */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    #statusBox {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #263238;
+      font-weight: bold;
+      color: #80d8ff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.88rem;
+    }
+    #statusBox.disconnected {
+      background: #3e2723;
+      color: #ff8a80;
+    }
+    #offlineBadge {
+      font-size: 0.72rem;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.35);
+      color: #aaa;
+    }
+    #offlineBadge.ready {
+      color: var(--accent);
+    }
+    .bat-box {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      min-width: 130px;
+      text-align: right;
+    }
+    .bat-text {
+      font-size: 0.82rem;
+      font-weight: bold;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .bat-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #batFill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+    .hint { font-size: 0.78rem; color: #888; margin-top: -4px; margin-bottom: 10px; }
+
+    /* Modal for Add to Home Screen Guide */
+    #pwaModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 380px;
+      border: 1px solid #444;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- RESET / DISCONNECT WARNING BANNER -->
+  <div id="alertBanner">
+    <span id="alertText">⚠️ ESP32 Reset Detected!</span>
+    <button onclick="document.getElementById('alertBanner').style.display='none'">Dismiss</button>
+  </div>
+
+  <!-- TOP ACTION BAR -->
+  <div class="row">
+    <button id="btnConnect" class="primary" onclick="connectBLE()">🔗 Connect</button>
+    <button onclick="sendCmd('SHUTTER')">📸 Shutter</button>
+    <button class="warn" onclick="sendCmd('SMOOTHSTOP')">📉 Smooth</button>
+    <button class="danger" onclick="sendCmd('STOP')">🛑 STOP</button>
+  </div>
+
+  <!-- UTILITY BAR: SYNC, FACTORY DEFAULTS, INSTALL APP -->
+  <div class="row" style="margin-bottom: 12px;">
+    <button class="subtle" onclick="sendCmd('GETSYNC')">📥 Read Device Config</button>
+    <button class="subtle" onclick="resetDefaults()">🔄 Reset Defaults</button>
+    <button class="subtle" id="btnInstall" onclick="installAppPrompt()">📲 Install App</button>
+  </div>
+
+  <!-- STATUS & 1S BATTERY TELEMETRY -->
+  <div class="telemetry-grid">
+    <div id="statusBox" class="disconnected">
+      <span id="statusText">Disconnected</span>
+      <span id="offlineBadge">⏳ Caching...</span>
+    </div>
+    <div class="bat-box">
+      <span class="bat-text" id="batLabel">🔋 --.-V (--%)</span>
+      <div class="bat-bar-bg">
+        <div id="batFill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GLOBAL SETTINGS: DIRECTION, SPEED, RAMP UP / RAMP DOWN -->
+  <div class="card">
+    <h2>⚙️ Global Speed & Ramp Control</h2>
+    <div class="row">
+      <label>Direction:</label>
+      <select id="dir" onchange="pushGlobalSettings()">
+        <option value="1">Forward ➡️</option>
+        <option value="0">Reverse ⬅️</option>
+      </select>
+    </div>
+
+    <label>Target Speed (PWM): <strong id="speedVal">200</strong> / 255</label>
+    <input type="range" id="speed" min="80" max="255" value="200"
+           oninput="document.getElementById('speedVal').innerText=this.value"
+           onchange="sendCmd('SPEED:' + this.value)">
+
+    <div class="row">
+      <label>Global Ramp-Up Time (sec):</label>
+      <input type="number" id="rampUpSec" value="1.0" min="0" max="15" step="0.2" onchange="pushGlobalSettings()">
+    </div>
+    <div class="row">
+      <label>Global Ramp-Down Time (sec):</label>
+      <input type="number" id="rampDownSec" value="1.0" min="0" max="15" step="0.2" onchange="pushGlobalSettings()">
+    </div>
+    <div class="hint">Values load automatically from the ESP32 upon connecting.</div>
+
+    <button class="primary" style="width:100%" onclick="startManual()">▶️ Start Continuous Manual Run</button>
+  </div>
+
+  <!-- MODE 1: TIMED CONTINUOUS MODE -->
+  <div class="card">
+    <h2>⏱️ Timed Continuous Mode</h2>
+    <div class="row">
+      <label>Total Run Time (sec):</label>
+      <input type="number" id="timedSec" value="6.0" min="0.5" step="0.5">
+    </div>
+    <div class="row">
+      <label>Trigger Shutter (Start & End):</label>
+      <input type="checkbox" id="timedShutter" checked>
+    </div>
+    <button class="primary" style="width:100%" onclick="startTimed()">▶️ Start Timed Run</button>
+  </div>
+
+  <!-- MODE 2: DYNAMIC SPEED-RAMP MODE -->
+  <div class="card">
+    <h2>🚀 Dynamic Speed-Ramp Mode (3-Phase)</h2>
+    <div class="hint">Smoothly shifts from Speed A ➔ Speed B ➔ Speed A using Global Ramps.</div>
+    <div class="row">
+      <label>Start & End Speed A (80–255):</label>
+      <input type="number" id="dynSpdA" value="110" min="80" max="255">
+    </div>
+    <div class="row">
+      <label>Middle Burst Speed B (80–255):</label>
+      <input type="number" id="dynSpdB" value="245" min="80" max="255">
+    </div>
+    <div class="row">
+      <label>Phase 1 Time @ Speed A (sec):</label>
+      <input type="number" id="dynT1" value="2.5" min="0.5" step="0.5">
+    </div>
+    <div class="row">
+      <label>Phase 2 Time @ Speed B (sec):</label>
+      <input type="number" id="dynT2" value="2.0" min="0.5" step="0.5">
+    </div>
+    <div class="row">
+      <label>Phase 3 Time @ Speed A (sec):</label>
+      <input type="number" id="dynT3" value="2.5" min="0.5" step="0.5">
+    </div>
+    <div class="row">
+      <label>Trigger Shutter (Start & End):</label>
+      <input type="checkbox" id="dynShutter">
+    </div>
+    <button class="primary" style="width:100%" onclick="startDynamic()">▶️ Start Dynamic Speed-Ramp</button>
+  </div>
+
+  <!-- MODE 3: MODE WITH STOPS -->
+  <div class="card">
+    <h2>🎬 Mode with Stops (Move-Shoot-Move)</h2>
+    <div class="row">
+      <label>Move Time per Stop (sec):</label>
+      <input type="number" id="stepMoveSec" value="2.0" min="0.3" step="0.2">
+    </div>
+    <div class="row">
+      <label>Time Between Stops (sec):</label>
+      <input type="number" id="stepPauseSec" value="4.0" min="1.0" step="0.5">
+    </div>
+    <div class="row">
+      <label>Total Number of Stops:</label>
+      <input type="number" id="stepCount" value="10" min="1">
+    </div>
+    <div class="row">
+      <label>Trigger Shutter at Each Stop:</label>
+      <input type="checkbox" id="stepShutter" checked>
+    </div>
+    <button class="primary" style="width:100%" onclick="startSteps()">▶️ Start Mode with Stops</button>
+  </div>
+
+  <!-- MODE 4: PING-PONG LOOP -->
+  <div class="card">
+    <h2>🔄 Ping-Pong Loop Mode</h2>
+    <div class="row">
+      <label>Travel Time One-Way (sec):</label>
+      <input type="number" id="ppMoveSec" value="6.0" min="1.0" step="0.5">
+    </div>
+    <div class="row">
+      <label>Pause at Ends (sec):</label>
+      <input type="number" id="ppPauseSec" value="1.5" min="0.2" step="0.5">
+    </div>
+    <button class="primary" style="width:100%" onclick="startPingPong()">▶️ Start Ping-Pong Loop</button>
+  </div>
+
+  <!-- ADD TO HOME SCREEN INSTRUCTIONS MODAL -->
+  <div id="pwaModal" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h2>📲 Install as Offline App</h2>
+      <p><strong>Android (Chrome):</strong><br>
+      Tap the browser menu <strong>⋮</strong> (top-right) and select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
+      <p><strong>iPhone / iPad (Bluefy):</strong><br>
+      Tap the <strong>Share</strong> icon at the bottom and tap <strong>"Add to Home Screen"</strong>.</p>
+      <button class="primary" style="width:100%" onclick="document.getElementById('pwaModal').style.display='none'">Got It</button>
+    </div>
+  </div>
+
+<script>
+  // --- REGISTER SERVICE WORKER FOR 100% OFFLINE USE ---
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('./sw.js');
+        await navigator.serviceWorker.ready;
+        const badge = document.getElementById('offlineBadge');
+        badge.innerText = "⚡ Offline Ready";
+        badge.classList.add('ready');
+      } catch (err) {
+        console.warn("Service worker registration failed:", err);
+      }
+    });
+  }
+
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('btnInstall').style.color = "#00e676";
+  });
+
+  async function installAppPrompt() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    } else {
+      document.getElementById('pwaModal').style.display = 'flex';
+    }
+  }
+
+  // --- BLE CONFIGURATION & WATCHDOG VARIABLES ---
+  const SERVICE_UUID     = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+  const CHAR_CMD_UUID    = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+  const CHAR_STATUS_UUID = "c8a192b2-1234-4688-b7f5-ea07361b26a9";
+
+  let bleDevice = null;
+  let cmdChar = null;
+  let statusChar = null;
+  let gattBusy = false;
+
+  let knownBootId = null;
+  let lastUptime = 0;
+  let lastPacketTime = 0;
+  let watchdogTimer = null;
+  let isSyncingFromDevice = false;
+
+  function setStatusText(txt, isDisconnected = false) {
+    const box = document.getElementById('statusBox');
+    const span = document.getElementById('statusText');
+    span.innerText = txt;
+    if (isDisconnected) {
+      box.classList.add('disconnected');
+    } else {
+      box.classList.remove('disconnected');
+    }
+  }
+
+  function showAlert(msg) {
+    const banner = document.getElementById('alertBanner');
+    document.getElementById('alertText').innerText = msg;
+    banner.style.display = 'flex';
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  }
+
+  function updateBatteryUI(voltsStr, pct, bootId, uptime) {
+    const volts = parseFloat(voltsStr);
+    const label = document.getElementById('batLabel');
+    const fill = document.getElementById('batFill');
+
+    if (knownBootId !== null && (bootId !== knownBootId || uptime < lastUptime)) {
+      showAlert("⚠️ ESP32 Reset Detected! The device rebooted. Config restored from flash.");
+      sendCmd("GETSYNC");
+    }
+    knownBootId = bootId;
+    lastUptime = uptime;
+
+    if (volts < 0.25) {
+      label.innerText = `⚠️ 0.00V (Check Pin 34)`;
+      fill.style.width = `0%`;
+      fill.style.background = "var(--danger)";
+      return;
+    }
+
+    label.innerText = `🔋 ${volts.toFixed(2)}V (${pct}%)`;
+    fill.style.width = `${pct}%`;
+
+    if (pct <= 15) {
+      fill.style.background = "var(--danger)";
+    } else if (pct <= 35) {
+      fill.style.background = "var(--warn)";
+    } else {
+      fill.style.background = "var(--accent)";
+    }
+  }
+
+  function handleIncomingBle(msg) {
+    lastPacketTime = Date.now();
+
+    if (msg.startsWith("B:")) {
+      const p = msg.substring(2).split(",");
+      updateBatteryUI(p[0], parseInt(p[1], 10), parseInt(p[2], 10), parseInt(p[3], 10));
+    }
+    else if (msg.startsWith("S:")) {
+      setStatusText(msg.substring(2), false);
+    }
+    else if (msg.startsWith("C1:")) {
+      isSyncingFromDevice = true;
+      const p = msg.substring(3).split(",");
+      document.getElementById('dir').value = p[0];
+      document.getElementById('speed').value = p[1];
+      document.getElementById('speedVal').innerText = p[1];
+      document.getElementById('rampUpSec').value = (parseInt(p[2], 10) / 10).toFixed(1);
+      document.getElementById('rampDownSec').value = (parseInt(p[3], 10) / 10).toFixed(1);
+      document.getElementById('timedSec').value = (parseInt(p[4], 10) / 10).toFixed(1);
+      document.getElementById('timedShutter').checked = (p[5] === "1");
+      isSyncingFromDevice = false;
+    }
+    else if (msg.startsWith("C2:")) {
+      isSyncingFromDevice = true;
+      const p = msg.substring(3).split(",");
+      document.getElementById('dynSpdA').value = p[0];
+      document.getElementById('dynSpdB').value = p[1];
+      document.getElementById('dynT1').value = (parseInt(p[2], 10) / 10).toFixed(1);
+      document.getElementById('dynT2').value = (parseInt(p[3], 10) / 10).toFixed(1);
+      document.getElementById('dynT3').value = (parseInt(p[4], 10) / 10).toFixed(1);
+      document.getElementById('dynShutter').checked = (p[5] === "1");
+      isSyncingFromDevice = false;
+    }
+    else if (msg.startsWith("C3:")) {
+      isSyncingFromDevice = true;
+      const p = msg.substring(3).split(",");
+      document.getElementById('stepMoveSec').value = (parseInt(p[0], 10) / 10).toFixed(1);
+      document.getElementById('stepPauseSec').value = (parseInt(p[1], 10) / 10).toFixed(1);
+      document.getElementById('stepCount').value = p[2];
+      document.getElementById('stepShutter').checked = (p[3] === "1");
+      document.getElementById('ppMoveSec').value = (parseInt(p[4], 10) / 10).toFixed(1);
+      document.getElementById('ppPauseSec').value = (parseInt(p[5], 10) / 10).toFixed(1);
+      isSyncingFromDevice = false;
+    }
+  }
+
+  async function onBleDisconnected() {
+    cmdChar = null;
+    statusChar = null;
+    setStatusText("⚠️ Disconnected / Reset!", true);
+    document.getElementById('btnConnect').innerText = "🔄 Reconnect";
+    showAlert("⚠️ Connection to ESP32 lost (Device reset or powered off). Attempting auto-reconnect...");
+
+    if (bleDevice) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          if (bleDevice.gatt.connected) break;
+          await establishGattSession();
+          return;
+        } catch (e) {
+          console.log("Auto-reconnect attempt " + attempt + " failed.");
+        }
+      }
+    }
+  }
+
+  async function establishGattSession() {
+    const server = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    cmdChar = await service.getCharacteristic(CHAR_CMD_UUID);
+    statusChar = await service.getCharacteristic(CHAR_STATUS_UUID);
+
+    await statusChar.startNotifications();
+    statusChar.addEventListener('characteristicvaluechanged', (e) => {
+      const msg = new TextDecoder().decode(e.target.value);
+      handleIncomingBle(msg);
+    });
+
+    lastPacketTime = Date.now();
+    setStatusText("Connected - Syncing...", false);
+    document.getElementById('btnConnect').innerText = "✅ Connected";
+
+    setTimeout(() => sendCmd("GETSYNC"), 250);
+
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    watchdogTimer = setInterval(async () => {
+      if (!bleDevice || !bleDevice.gatt.connected) return;
+      if (Date.now() - lastPacketTime > 6000 && statusChar && !gattBusy) {
+        try {
+          gattBusy = true;
+          const val = await statusChar.readValue();
+          handleIncomingBle(new TextDecoder().decode(val));
+        } catch (e) {
+          onBleDisconnected();
+        } finally {
+          gattBusy = false;
+        }
+      }
+    }, 3000);
+  }
+
+  async function connectBLE() {
+    try {
+      if (!bleDevice) {
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ name: "ESP32-CamRoller" }],
+          optionalServices: [SERVICE_UUID]
+        });
+        bleDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+      }
+      await establishGattSession();
+    } catch (err) {
+      alert("BLE Connection Failed: " + err);
+    }
+  }
+
+  async function sendCmd(str) {
+    if (!cmdChar) return alert("Please connect to BLE first!");
+    while (gattBusy) {
+      await new Promise(r => setTimeout(r, 25));
+    }
+    try {
+      gattBusy = true;
+      const encoder = new TextEncoder();
+      await cmdChar.writeValue(encoder.encode(str));
+    } catch (err) {
+      console.error("BLE Write Error:", err);
+    } finally {
+      gattBusy = false;
+    }
+  }
+
+  function getGlobal() {
+    return {
+      dir: document.getElementById('dir').value,
+      spd: document.getElementById('speed').value,
+      rUp: Math.round(parseFloat(document.getElementById('rampUpSec').value || 0) * 1000),
+      rDown: Math.round(parseFloat(document.getElementById('rampDownSec').value || 0) * 1000)
+    };
+  }
+
+  function pushGlobalSettings() {
+    if (!cmdChar || isSyncingFromDevice) return;
+    const { dir, spd, rUp, rDown } = getGlobal();
+    sendCmd(`RAMPSET:${rUp},${rDown},${dir},${spd}`);
+  }
+
+  function resetDefaults() {
+    if (!cmdChar) return alert("Connect to the ESP32 first to reset its saved configuration.");
+    if (confirm("Reset all ESP32 & Web settings back to factory defaults?")) {
+      sendCmd("RESETCFG");
+    }
+  }
+
+  function startManual() {
+    const { dir, spd, rUp, rDown } = getGlobal();
+    sendCmd(`MAN:${dir},${spd},${rUp},${rDown}`);
+  }
+
+  function startTimed() {
+    const { dir, spd, rUp, rDown } = getGlobal();
+    const ms = Math.round(parseFloat(document.getElementById('timedSec').value) * 1000);
+    const sh = document.getElementById('timedShutter').checked ? 1 : 0;
+    sendCmd(`TIMED:${dir},${spd},${ms},${sh},${rUp},${rDown}`);
+  }
+
+  function startDynamic() {
+    const { dir, rUp, rDown } = getGlobal();
+    const spdA = document.getElementById('dynSpdA').value;
+    const spdB = document.getElementById('dynSpdB').value;
+    const t1 = Math.round(parseFloat(document.getElementById('dynT1').value) * 1000);
+    const t2 = Math.round(parseFloat(document.getElementById('dynT2').value) * 1000);
+    const t3 = Math.round(parseFloat(document.getElementById('dynT3').value) * 1000);
+    const sh = document.getElementById('dynShutter').checked ? 1 : 0;
+    sendCmd(`DYN:${dir},${spdA},${spdB},${t1},${t2},${t3},${sh},${rUp},${rDown}`);
+  }
+
+  function startSteps() {
+    const { dir, spd, rUp, rDown } = getGlobal();
+    const moveMs = Math.round(parseFloat(document.getElementById('stepMoveSec').value) * 1000);
+    const pauseMs = Math.round(parseFloat(document.getElementById('stepPauseSec').value) * 1000);
+    const steps = document.getElementById('stepCount').value;
+    const sh = document.getElementById('stepShutter').checked ? 1 : 0;
+    sendCmd(`STEPS:${dir},${spd},${moveMs},${pauseMs},${steps},${sh},${rUp},${rDown}`);
+  }
+
+  function startPingPong() {
+    const { dir, spd, rUp, rDown } = getGlobal();
+    const moveMs = Math.round(parseFloat(document.getElementById('ppMoveSec').value) * 1000);
+    const pauseMs = Math.round(parseFloat(document.getElementById('ppPauseSec').value) * 1000);
+    sendCmd(`PINGPONG:${dir},${spd},${moveMs},${pauseMs},${rUp},${rDown}`);
+  }
+</script>
+</body>
+</html>
